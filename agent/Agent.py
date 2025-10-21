@@ -359,10 +359,9 @@ class Agent(Base_Agent):
 
 
 
-        
 
-#Had targeting goal working properly 
-
+    # Had targeting goal working properly
+    
     def select_skill(self, strategyData):
         drawer = self.world.draw
         path_draw_options = self.path_manager.draw_options
@@ -465,110 +464,142 @@ class Agent(Base_Agent):
         else:
             drawer.clear("pass line")
             return self.move(smooth_pos, orientation=strategyData.ball_dir)
+        
+
+    #Implemented dribbling and shooting logic but had issues with role assignment and smooth movement
+
+    # def select_skill(self, strategyData):
+    #     drawer = self.world.draw
+    #     path_draw_options = self.path_manager.draw_options
+
+    #     # ---------------- Constants ----------------
+    #     GOAL_BOX_X_MIN = -15
+    #     GOAL_BOX_X_MAX = -10
+    #     GOAL_BOX_Y_MIN = -5
+    #     GOAL_BOX_Y_MAX = 5
+    #     step_size = 0.5
+    #     min_distance = 1.5
+    #     GOAL_POS = np.array([15, 0])
+    #     CENTRAL_PLAYER_UNUM = 2
+    #     ATTACKING_HALF_X = 0.0
+    #     DRIBBLE_SPEED = 0.4
+    #     BALL_PUSH_DIST = 0.6
+    #     SHOOTING_DISTANCE = 3.0
+
+    #     # ---------------- Role Assignment ----------------
+    #     if strategyData.active_player_unum == strategyData.robot_model.unum:
+    #         drawer.annotation((0, 10.5), "Role Assignment Phase", drawer.Color.yellow, "status")
+    #     else:
+    #         drawer.clear("status")
+
+    #     formation_positions = GenerateDynamicFormation(strategyData)
+    #     point_preferences = role_assignment(strategyData.teammate_positions, formation_positions)
+    #     strategyData.my_desired_position = point_preferences[strategyData.player_unum]
+    #     strategyData.my_desried_orientation = strategyData.GetDirectionRelativeToMyPositionAndTarget(
+    #         strategyData.my_desired_position
+    #     )
+    #     drawer.line(strategyData.mypos, strategyData.my_desired_position, 2, drawer.Color.blue, "target line")
+
+    #     # ---------------- Initialize tracking ----------------
+    #     if not hasattr(self, "prev_positions"):
+    #         self.prev_positions = [pos.copy() for pos in strategyData.teammate_positions]
+    #     if not hasattr(self, "ball_carrier_unum"):
+    #         self.ball_carrier_unum = None
+
+    #     ball_pos = strategyData.ball_2d.copy()
+    #     smooth_positions = []
+
+    #     # ---------------- Find closest player to the ball ----------------
+    #     distances_to_ball = [np.linalg.norm(pos - ball_pos) for pos in self.prev_positions]
+    #     chaser_unum = np.argmin(distances_to_ball) + 1  # unum starts at 1
+
+    #     # ---------------- Maintain ball control ----------------
+    #     if self.ball_carrier_unum is None:
+    #         self.ball_carrier_unum = chaser_unum
+    #     else:
+    #         carrier_pos = self.prev_positions[self.ball_carrier_unum - 1]
+    #         if np.linalg.norm(carrier_pos - ball_pos) > 2.0:
+    #             # Too far, reassign control
+    #             self.ball_carrier_unum = chaser_unum
+
+    #     # ---------------- Iterate over players ----------------
+    #     for i, formation_target in enumerate(point_preferences, start=1):
+    #         current_pos = self.prev_positions[i - 1]
+
+    #         # Goalkeeper stays limited
+    #         if i == 1:
+    #             desired_pos = formation_target
+    #         elif ball_pos[0] > ATTACKING_HALF_X and i == CENTRAL_PLAYER_UNUM:
+    #             desired_pos = np.array([0, 0])  # defensive safety
+    #         elif i == self.ball_carrier_unum:
+    #             # ---------------- Dribbling logic ----------------
+    #             direction_to_goal = (GOAL_POS - current_pos)
+    #             direction_to_goal /= np.linalg.norm(direction_to_goal)
+
+    #             dist_to_goal = np.linalg.norm(ball_pos - GOAL_POS)
+    #             if dist_to_goal > SHOOTING_DISTANCE:
+    #                 # Dribble toward goal (ball moves slightly ahead)
+    #                 desired_pos = current_pos + direction_to_goal * DRIBBLE_SPEED
+    #                 new_ball_pos = current_pos + direction_to_goal * (DRIBBLE_SPEED + BALL_PUSH_DIST)
+    #                 strategyData.ball_2d = new_ball_pos
+    #                 ball_pos = new_ball_pos  # update for subsequent players
+    #                 drawer.line(current_pos, desired_pos, 2, drawer.Color.green, "dribble path")
+    #             else:
+    #                 # In shooting range
+    #                 desired_pos = current_pos
+    #                 drawer.annotation((0, 9.5), "Shooting Range!", drawer.Color.red, "status")
+    #         else:
+    #             # ---------------- Supporting players ----------------
+    #             carrier_pos = self.prev_positions[self.ball_carrier_unum - 1]
+    #             offset_side = ((i % 2) * 2 - 1) * 3.0  # alternate left/right
+    #             offset_forward = 4.0
+    #             desired_pos = carrier_pos + np.array([offset_forward, offset_side])
+
+    #         # ---------------- Smooth Movement ----------------
+    #         move_vector = desired_pos - current_pos
+    #         if np.linalg.norm(move_vector) > step_size:
+    #             move_vector = move_vector / np.linalg.norm(move_vector) * step_size
+    #         new_pos = current_pos + move_vector
+
+    #         # ---------------- Goalkeeper restriction ----------------
+    #         if i == 1:
+    #             new_pos[0] = np.clip(new_pos[0], GOAL_BOX_X_MIN, GOAL_BOX_X_MAX)
+    #             new_pos[1] = np.clip(new_pos[1], GOAL_BOX_Y_MIN, GOAL_BOX_Y_MAX)
+
+    #         smooth_positions.append(new_pos)
+    #         self.prev_positions[i - 1] = new_pos
+
+    #     # ---------------- Maintain spacing between players ----------------
+    #     for i in range(len(smooth_positions)):
+    #         for j in range(i + 1, len(smooth_positions)):
+    #             diff = smooth_positions[i] - smooth_positions[j]
+    #             if np.linalg.norm(diff) < min_distance:
+    #                 adjust = (diff / np.linalg.norm(diff)) * (min_distance - np.linalg.norm(diff)) / 2
+    #                 smooth_positions[i] += adjust
+    #                 smooth_positions[j] -= adjust
+
+    #     # ---------------- Active Player Logic ----------------
+    #     smooth_pos = self.prev_positions[strategyData.player_unum - 1]
+
+    #     if strategyData.active_player_unum == strategyData.robot_model.unum:
+    #         # I'm active player
+    #         if strategyData.robot_model.unum == self.ball_carrier_unum:
+    #             dist_to_goal = np.linalg.norm(strategyData.ball_2d - GOAL_POS)
+    #             if dist_to_goal <= SHOOTING_DISTANCE:
+    #                 drawer.annotation((0, 8.5), "Shooting!", drawer.Color.red, "status")
+    #                 return self.kickTarget(strategyData, strategyData.mypos, GOAL_POS)
+    #             else:
+    #                 return self.move(smooth_pos, orientation=strategyData.ball_dir)
+    #         else:
+    #             return self.move(smooth_pos, orientation=strategyData.ball_dir)
+    #     else:
+    #         # Other players
+    #         return self.move(smooth_pos, orientation=strategyData.ball_dir)
 
 
-# def select_skill(self, strategyData):
-#     drawer = self.world.draw
-#     path_draw_options = self.path_manager.draw_options
 
-#     # ---------------- Goalkeeper restriction box ----------------
-#     GOAL_BOX_X_MIN = -15
-#     GOAL_BOX_X_MAX = -10
-#     GOAL_BOX_Y_MIN = -5
-#     GOAL_BOX_Y_MAX = 5
-#     step_size = 0.5
-#     min_distance = 1.5
-#     GOAL_POS = np.array([15, 0])
-#     CENTRAL_PLAYER_UNUM = 2  # player who stays back in center
-#     ATTACKING_HALF_X = 0.0   # x > 0 is attacking half
 
-#     #------------------------------------------------------
-#     # Role Assignment
-#     if strategyData.active_player_unum == strategyData.robot_model.unum:
-#         drawer.annotation((0, 10.5), "Role Assignment Phase", drawer.Color.yellow, "status")
-#     else:
-#         drawer.clear("status")
 
-#     formation_positions = GenerateDynamicFormation(strategyData)
-#     point_preferences = role_assignment(strategyData.teammate_positions, formation_positions)
-#     strategyData.my_desired_position = point_preferences[strategyData.player_unum]
-#     strategyData.my_desried_orientation = strategyData.GetDirectionRelativeToMyPositionAndTarget(
-#         strategyData.my_desired_position
-#     )
-
-#     drawer.line(strategyData.mypos, strategyData.my_desired_position, 2, drawer.Color.blue, "target line")
-
-#     # ---------------- Smooth Movement ----------------
-#     if not hasattr(self, "prev_positions"):
-#         self.prev_positions = [pos.copy() for pos in strategyData.teammate_positions]
-
-#     ball_pos = strategyData.ball_2d
-#     ball_x = ball_pos[0]
-#     smooth_positions = []
-
-#     # Determine closest player to ball
-#     distances_to_ball = [np.linalg.norm(pos - ball_pos) for pos in self.prev_positions]
-#     chaser_unum = np.argmin(distances_to_ball) + 1  # unum starts at 1
-
-#     # Iterate over all teammates + self
-#     for i, formation_target in enumerate(point_preferences, start=1):
-#         current_pos = self.prev_positions[i - 1]
-
-#         # ---------------- Determine desired position ----------------
-#         if i == 1:  # goalkeeper
-#             desired_pos = formation_target
-#         elif ball_x > ATTACKING_HALF_X and i == CENTRAL_PLAYER_UNUM:
-#             # Central safety player stays behind in center when attacking
-#             desired_pos = np.array([0, 0])  # tweak slightly if needed
-#         elif i == chaser_unum:
-#             # Closest player chases ball
-#             desired_pos = ball_pos
-#         else:
-#             # Supporting players spread intelligently
-#             offset = np.array([0, 2 * ((i % 2) * 2 - 1)])  # alternate left/right
-#             desired_pos = formation_target + offset
-
-#         # ---------------- Smooth movement ----------------
-#         move_vector = desired_pos - current_pos
-#         if np.linalg.norm(move_vector) > step_size:
-#             move_vector = move_vector / np.linalg.norm(move_vector) * step_size
-#         new_pos = current_pos + move_vector
-
-#         # ---------------- Goalkeeper restriction ----------------
-#         if i == 1:
-#             new_pos[0] = np.clip(new_pos[0], GOAL_BOX_X_MIN, GOAL_BOX_X_MAX)
-#             new_pos[1] = np.clip(new_pos[1], GOAL_BOX_Y_MIN, GOAL_BOX_Y_MAX)
-
-#         smooth_positions.append(new_pos)
-#         self.prev_positions[i - 1] = new_pos
-
-#     # ---------------- Maintain minimum spacing ----------------
-#     for i in range(len(smooth_positions)):
-#         for j in range(i + 1, len(smooth_positions)):
-#             diff = smooth_positions[i] - smooth_positions[j]
-#             if np.linalg.norm(diff) < min_distance:
-#                 adjust = (diff / np.linalg.norm(diff)) * (min_distance - np.linalg.norm(diff)) / 2
-#                 smooth_positions[i] += adjust
-#                 smooth_positions[j] -= adjust
-
-#     # ---------------- Move Active Player ----------------
-#     smooth_pos = self.prev_positions[strategyData.player_unum - 1]
-
-#     if strategyData.active_player_unum == strategyData.robot_model.unum:
-#         drawer.annotation((0, 10.5), "Pass Selector Phase", drawer.Color.yellow, "status")
-
-#         # Determine pass receiver
-#         pass_receiver_unum = strategyData.player_unum + 1
-#         if pass_receiver_unum > len(strategyData.teammate_positions):
-#             target = GOAL_POS
-#         else:
-#             target = self.prev_positions[pass_receiver_unum - 1]
-
-#         drawer.line(strategyData.mypos, target, 2, drawer.Color.red, "pass line")
-#         return self.kickTarget(strategyData, strategyData.mypos, target)
-#     else:
-#         drawer.clear("pass line")
-#         return self.move(smooth_pos, orientation=strategyData.ball_dir)
 
     
         #------------------------------------------------------
