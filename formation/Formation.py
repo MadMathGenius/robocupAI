@@ -35,7 +35,7 @@ def GenerateDynamicFormation(strategyData):
 
     formation = []
 
-    if ball_y < -5:  # Defensive half
+    if ball_x < -5:  # Defensive half
         formation = [
             np.array([-13, 0]),   # Goalkeeper
             np.array([-8, -2]),   # Left defender
@@ -43,21 +43,21 @@ def GenerateDynamicFormation(strategyData):
             np.array([-3, 2]),    # Defensive mid
             np.array([-2, -1])    # Support
         ]
-    elif -5 <= ball_y <= 5:  # Midfield control
+    elif -5 <= ball_x <= 5:  # Midfield control
         formation = [
             np.array([-13, 0]),   # Goalkeeper
             np.array([-4, -2]),   # Left mid
             np.array([-3, 3]),    # Right mid
-            np.array([3, 1]),     # Attacker left
-            np.array([4, -1])     # Attacker right
+            np.array([3, 7]),     # Attacker left
+            np.array([4, -7])     # Attacker right
         ]
     else:  # Attacking third
         formation = [
             np.array([-13, 0]),   # Goalkeeper
             np.array([-2, -3]),   # Support left
-            np.array([1, 3]),    # Support right
-            np.array([8, 3]),    # Forward left
-            np.array([10, -2])    # Forward right
+            np.array([12, 0]),    # Support right
+            np.array([9, 7]),    # Forward left
+            np.array([9, -7])    # Forward right
         ]
 
     # Flip formation if your team is on the right
