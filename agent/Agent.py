@@ -522,6 +522,7 @@ class Agent(Base_Agent):
             drawer.clear("pass line")
             return self.move(smooth_pos, orientation=strategyData.ball_dir)
 
+
         
 
     #Implemented dribbling and shooting logic but had issues with role assignment and smooth movement
@@ -682,7 +683,6 @@ class Agent(Base_Agent):
         #     drawer.clear("pass line")
         #     return self.move(strategyData.my_desired_position, orientation=strategyData.ball_dir)
         
-
 
 
 
