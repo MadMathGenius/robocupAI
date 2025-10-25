@@ -363,6 +363,8 @@ class Agent(Base_Agent):
     # Had targeting goal working properly
     
     def select_skill(self, strategyData):
+
+        #########################################################Existing code
         drawer = self.world.draw
         path_draw_options = self.path_manager.draw_options
 
@@ -374,6 +376,8 @@ class Agent(Base_Agent):
         step_size = 0.5
         min_distance = 1.5
         GOAL_POS = np.array([15, 0])
+        SHOOTING_DISTANCE = 4.0  # how close before shooting
+        DRIBBLE_STEP = 0.3       # how far the player pushes the ball each frame
         CENTRAL_PLAYER_UNUM = 2  # player who stays back in center
         ATTACKING_HALF_X = 0.0   # x > 0 is attacking half
 
@@ -405,6 +409,40 @@ class Agent(Base_Agent):
         distances_to_ball = [np.linalg.norm(pos - ball_pos) for pos in self.prev_positions]
         chaser_unum = np.argmin(distances_to_ball) + 1  # unum starts at 1
 
+        ####################################################################
+        # ---------------- Striker coordination (Player 4 & 5) ----------------
+        MIN_STRIKER_SPACING = 1.5
+
+        LEFT_OFFSET = np.array([-1.0, 1.0])   # Player 4 lane
+        RIGHT_OFFSET = np.array([-1.0, -1.0]) # Player 5 lane
+
+        dist_to_ball_4 = np.linalg.norm(self.prev_positions[3] - ball_pos)
+        dist_to_ball_5 = np.linalg.norm(self.prev_positions[4] - ball_pos)
+
+        if dist_to_ball_4 < dist_to_ball_5:
+            primary_striker = 4
+            secondary_striker = 5
+        else:
+            primary_striker = 5
+            secondary_striker = 4
+
+        desired_positions = {}
+        desired_positions[primary_striker] = ball_pos
+
+        if secondary_striker == 4:
+            desired_positions[secondary_striker] = ball_pos + LEFT_OFFSET
+        else:
+            desired_positions[secondary_striker] = ball_pos + RIGHT_OFFSET
+
+        # Ensure minimum spacing
+        if np.linalg.norm(desired_positions[4] - desired_positions[5]) < MIN_STRIKER_SPACING:
+            direction = desired_positions[5] - desired_positions[4]
+            if np.linalg.norm(direction) > 0:
+                direction = direction / np.linalg.norm(direction) * MIN_STRIKER_SPACING
+                desired_positions[5] = desired_positions[4] + direction
+
+        #####################################################################
+
         # Iterate over all teammates + self
         for i, formation_target in enumerate(point_preferences, start=1):
             current_pos = self.prev_positions[i - 1]
@@ -412,12 +450,28 @@ class Agent(Base_Agent):
             # ---------------- Determine desired position ----------------
             if i == 1:  # goalkeeper
                 desired_pos = formation_target
+
             elif ball_x > ATTACKING_HALF_X and i == CENTRAL_PLAYER_UNUM:
                 # Central safety player stays behind in center when attacking
                 desired_pos = np.array([0, 0])  # tweak slightly if needed
+            
             elif i == chaser_unum:
-                # Closest player chases ball
-                desired_pos = ball_pos
+                # Player currently controlling the ball
+                to_goal = GOAL_POS - ball_pos
+                to_goal_dir = to_goal / np.linalg.norm(to_goal)
+
+                distance_to_goal = np.linalg.norm(to_goal)
+                if distance_to_goal > SHOOTING_DISTANCE:
+                    # Dribble toward the goal
+                    desired_pos = ball_pos + to_goal_dir * DRIBBLE_STEP
+                    ball_pos = desired_pos.copy()  # ball moves with player
+                else:
+                    # Close enough — take a shot
+                    return self.kickTarget(strategyData, ball_pos, GOAL_POS)
+                
+            elif i in [4, 5]:
+                # Use striker coordination
+                desired_pos = desired_positions[i]
             else:
                 # Supporting players spread intelligently
                 offset = np.array([0, 2 * ((i % 2) * 2 - 1)])  # alternate left/right
@@ -438,18 +492,31 @@ class Agent(Base_Agent):
             self.prev_positions[i - 1] = new_pos
 
         # ---------------- Maintain minimum spacing ----------------
+        # ---------------- Maintain minimum spacing (avoid collisions) ----------------
         for i in range(len(smooth_positions)):
             for j in range(i + 1, len(smooth_positions)):
                 diff = smooth_positions[i] - smooth_positions[j]
-                if np.linalg.norm(diff) < min_distance:
-                    adjust = (diff / np.linalg.norm(diff)) * (min_distance - np.linalg.norm(diff)) / 2
+                dist = np.linalg.norm(diff)
+                if dist < min_distance and dist > 0:
+                    # Move both players away from each other equally
+                    adjust = (diff / dist) * (min_distance - dist) / 2
                     smooth_positions[i] += adjust
                     smooth_positions[j] -= adjust
+                elif dist == 0:
+                    # Perfect overlap, nudge randomly to prevent division by zero
+                    nudge = np.random.uniform(-0.1, 0.1, size=2)
+                    smooth_positions[i] += nudge
+                    smooth_positions[j] -= nudge
+
 
         # ---------------- Move Active Player ----------------
         smooth_pos = self.prev_positions[strategyData.player_unum - 1]
 
-        if strategyData.active_player_unum == strategyData.robot_model.unum:
+        if strategyData.active_player_unum == strategyData.robot_model.unum and strategyData.player_unum in [4, 5]:
+            # Always aim for goal if Player 4 or 5
+            target = GOAL_POS
+            return self.kickTarget(strategyData, strategyData.mypos, target)
+        elif strategyData.active_player_unum == strategyData.robot_model.unum:
             drawer.annotation((0, 10.5), "Pass Selector Phase", drawer.Color.yellow, "status")
 
             # Determine pass receiver
@@ -464,6 +531,8 @@ class Agent(Base_Agent):
         else:
             drawer.clear("pass line")
             return self.move(smooth_pos, orientation=strategyData.ball_dir)
+
+
         
 
     #Implemented dribbling and shooting logic but had issues with role assignment and smooth movement
