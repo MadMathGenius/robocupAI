@@ -6,16 +6,15 @@ def role_assignment(teammate_positions, formation_positions):
     # for i, pos in enumerate(teammate_positions):
     #     print(f"Player {i} → {pos}")
 
-
     # print("\n--- Current formation positions ---")
     # for i, pos in enumerate(formation_positions):
     #     print(f"Role {i} → {pos}")
 
-
-
     # Input : Locations of all teammate locations and positions
     # Output : Map from unum -> positions
     #-----------------------------------------------------------#
+
+    DEBUG_DISTANCES = False  # 👈 toggle this to True if you want to see distance debug output
 
     n = len(teammate_positions)
     assert n == len(formation_positions), "Both input lists must be the same size."
@@ -26,6 +25,8 @@ def role_assignment(teammate_positions, formation_positions):
         distances = []
         for j in range(n):
             dist = np.linalg.norm(teammate_positions[i] - formation_positions[j])
+            if DEBUG_DISTANCES:
+                print(f"Distance between teammate {i} and formation {j}: {dist:.3f}")
             distances.append((dist, j))
         # Sort roles by ascending distance (closest first)
         distances.sort(key=lambda x: x[0])
@@ -37,6 +38,8 @@ def role_assignment(teammate_positions, formation_positions):
         distances = []
         for i in range(n):
             dist = np.linalg.norm(teammate_positions[i] - formation_positions[j])
+            if DEBUG_DISTANCES:
+                print(f"Distance between formation {j} and teammate {i}: {dist:.3f}")
             distances.append((dist, i))
         # Sort players by ascending distance
         distances.sort(key=lambda x: x[0])
@@ -79,7 +82,4 @@ def role_assignment(teammate_positions, formation_positions):
     # for k, v in point_preferences.items():
     #     print(f"Player {k} → {v}")
 
-
     return point_preferences
-
-

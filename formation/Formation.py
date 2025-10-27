@@ -1,68 +1,43 @@
 import numpy as np
 
 def GenerateBasicFormation():
-
-
+    """
+    Returns a simple static formation for 5 players:
+    Goalkeeper + 2 Defenders + 2 Attackers
+    """
     formation = [
-        np.array([-13, 0]),    # Goalkeeper
-        np.array([-9, -4]),  # Left Defender
-        np.array([-9, 4]),   # Right Defender
-        np.array([-1, -3 ]),    # Forward Left
-        np.array([-1, 3])      # Forward Right
+        np.array([-13, 0]),  # Goalkeeper
+        np.array([-8, -3]),  # Left Defender
+        np.array([-8, 3]),   # Right Defender
+        np.array([-3, -2]),  # Left Forward
+        np.array([-3, 2])    # Right Forward
     ]
-
-
-
-    # formation = [
-    #     np.array([-13, 0]),    # Goalkeeper
-    #     np.array([-10, -2]),  # Left Defender
-    #     np.array([-11, 3]),   # Center Back Left
-    #     np.array([-8, 0]),    # Center Back Right
-    #     np.array([-3, 0]),   # Right Defender
-    #     np.array([0, 1]),    # Left Midfielder
-    #     np.array([2, 0]),    # Center Midfielder Left
-    #     np.array([3, 3]),     # Center Midfielder Right
-    #     np.array([8, 0]),     # Right Midfielder
-    #     np.array([9, 1]),    # Forward Left
-    #     np.array([12, 0])      # Forward Right
-    # ]
-
     return formation
 
-def GenerateDynamicFormation(strategyData):
-    ball_y, ball_x = strategyData.ball_2d
-    side = strategyData.side  # 0 for left, 1 for right
+def GenerateDynamicFormation(strategyData, offset_x=0.0):
+    """
+    Generates a dynamic formation based on teammate positions and strategy.
+    
+    Parameters
+    ----------
+    strategyData : Strategy
+        Object containing game state information (teammate positions, ball, etc.)
+    offset_x : float
+        Optional x-offset to shift the formation forward/backward
+    
+    Returns
+    -------
+    formation_positions : list of np.array
+        List of 2D positions for all teammates
+    """
+    num_players = len(strategyData.teammate_positions)
+    formation_positions = []
 
-    formation = []
+    # Define a default formation spread
+    y_spread = np.linspace(-5, 5, num_players)
+    x_base = np.array([-13, -8, -8, -3, -3])[:num_players] + offset_x
 
-    if ball_x < -5:  # Defensive half
-        formation = [
-            np.array([-13, 0]),   # Goalkeeper
-            np.array([-8, -2]),   # Left defender
-            np.array([-7, 3]),    # Right defender
-            np.array([-3, 2]),    # Defensive mid
-            np.array([-2, -1])    # Support
-        ]
-    elif -5 <= ball_x <= 5:  # Midfield control
-        formation = [
-            np.array([-13, 0]),   # Goalkeeper
-            np.array([-4, -2]),   # Left mid
-            np.array([-3, 3]),    # Right mid
-            np.array([3, 7]),     # Attacker left
-            np.array([4, -7])     # Attacker right
-        ]
-    else:  # Attacking third
-        formation = [
-            np.array([-13, 0]),   # Goalkeeper
-            np.array([-2, -3]),   # Support left
-            np.array([12, 0]),    # Support right
-            np.array([9, 7]),    # Forward left
-            np.array([9, -7])    # Forward right
-        ]
+    for i in range(num_players):
+        formation_positions.append(np.array([x_base[i], y_spread[i]]))
 
-    # Flip formation if your team is on the right
-    if side == 1:
-        formation = [np.array([-p[0], p[1]]) for p in formation]
-
-    return formation
-
+    return formation_positions
