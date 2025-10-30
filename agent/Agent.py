@@ -378,7 +378,7 @@ class Agent(Base_Agent):
             drawer.clear("status")
 
         # Safe generation of formation positions
-        formation_offset = 0.0  # optional, tweak if you want forward/back shift
+        formation_offset = 0.0
         formation_positions = GenerateDynamicFormation(strategyData, offset_x=formation_offset)
 
         teammate_positions = strategyData.teammate_positions
@@ -417,27 +417,30 @@ class Agent(Base_Agent):
         distances_to_ball = [np.linalg.norm(pos - ball_pos) for pos in self.prev_positions]
         chaser_unum = np.argmin(distances_to_ball) + 1
 
-        # ---------------- Striker coordination ----------------
+        # ---------------- Striker coordination (Players 2–5) ----------------
         MIN_STRIKER_SPACING = 1.5
-        LEFT_OFFSET = np.array([-1.0, 1.0])
-        RIGHT_OFFSET = np.array([-1.0, -1.0])
+        OFFSETS = {
+            2: np.array([-1.0, 2.0]),
+            3: np.array([-1.0, -2.0]),
+            4: np.array([-1.0, 1.0]),
+            5: np.array([-1.0, -1.0]),
+        }
 
-        dist_to_ball_4 = np.linalg.norm(self.prev_positions[3] - ball_pos)
-        dist_to_ball_5 = np.linalg.norm(self.prev_positions[4] - ball_pos)
-        if dist_to_ball_4 < dist_to_ball_5:
-            primary_striker, secondary_striker = 4, 5
-        else:
-            primary_striker, secondary_striker = 5, 4
+        # Assign all strikers around the ball with spacing
+        desired_positions = {}
+        for unum in [2, 3, 4, 5]:
+            desired_positions[unum] = ball_pos + OFFSETS[unum]
 
-        desired_positions = {primary_striker: ball_pos}
-        desired_positions[secondary_striker] = ball_pos + (LEFT_OFFSET if secondary_striker == 4 else RIGHT_OFFSET)
-
-        # Ensure minimum spacing
-        if np.linalg.norm(desired_positions[4] - desired_positions[5]) < MIN_STRIKER_SPACING:
-            direction = desired_positions[5] - desired_positions[4]
-            if np.linalg.norm(direction) > 0:
-                direction = direction / np.linalg.norm(direction) * MIN_STRIKER_SPACING
-                desired_positions[5] = desired_positions[4] + direction
+        # Maintain spacing among all four strikers
+        for i in [2, 3, 4, 5]:
+            for j in [x for x in [2, 3, 4, 5] if x > i]:
+                diff = desired_positions[i] - desired_positions[j]
+                dist = np.linalg.norm(diff)
+                if 0 < dist < MIN_STRIKER_SPACING:
+                    direction = diff / dist
+                    adjust = (MIN_STRIKER_SPACING - dist) / 2
+                    desired_positions[i] += direction * adjust
+                    desired_positions[j] -= direction * adjust
 
         # ---------------- Iterate teammates ----------------
         for i, formation_target in enumerate(point_preferences, start=1):
@@ -445,15 +448,11 @@ class Agent(Base_Agent):
 
             if i == 1:  # goalkeeper
                 desired_pos = formation_target
-            elif ball_x > ATTACKING_HALF_X and i == CENTRAL_PLAYER_UNUM:
-                desired_pos = np.array([0, 0])
-            elif i == chaser_unum:
-                desired_pos = ball_pos
-            elif i in [4, 5]:
+            elif i in [2, 3, 4, 5]:
+                # All out strikers — move near ball
                 desired_pos = desired_positions[i]
             else:
-                offset = np.array([0, 2 * ((i % 2) * 2 - 1)])
-                desired_pos = formation_target + offset
+                desired_pos = formation_target
 
             # Smooth movement
             move_vector = desired_pos - current_pos
@@ -486,8 +485,8 @@ class Agent(Base_Agent):
         # ---------------- Active Player Behavior ----------------
         smooth_pos = self.prev_positions[strategyData.player_unum - 1]
 
-        if strategyData.active_player_unum == strategyData.robot_model.unum and strategyData.player_unum in [4, 5]:
-            # Always aim for goal if striker
+        if strategyData.active_player_unum == strategyData.robot_model.unum and strategyData.player_unum in [2, 3, 4, 5]:
+            # All strikers aim for goal
             target = GOAL_POS
             return self.kickTarget(strategyData, strategyData.mypos, target)
         elif strategyData.active_player_unum == strategyData.robot_model.unum:
@@ -503,6 +502,7 @@ class Agent(Base_Agent):
         else:
             drawer.clear("pass line")
             return self.move(smooth_pos, orientation=strategyData.ball_dir)
+
 
     #Implemented dribbling and shooting logic but had issues with role assignment and smooth movement
 
