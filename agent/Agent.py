@@ -447,7 +447,9 @@ class Agent(Base_Agent):
             current_pos = self.prev_positions[i - 1]
 
             if i == 1:  # goalkeeper
-                desired_pos = formation_target
+                desired_pos = np.array([-13, 0])  # fixed goalkeeper position
+            elif i == 3:
+                desired_pos = np.array([0, 0])  # fixed midfielder position
             elif i in [2, 3, 4, 5]:
                 # All out strikers — move near ball
                 desired_pos = desired_positions[i]
