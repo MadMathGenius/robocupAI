@@ -475,19 +475,20 @@ class Agent(Base_Agent):
         ball_in_defensive_box = ball_pos[0] < DEFENSIVE_BOX_X and abs(ball_pos[1]) < DEFENSIVE_BOX_Y
 
         if under_attack and ball_in_defensive_box:
-            keeper_pos = self.prev_positions[0]      # Player 1
-            defender_pos = self.prev_positions[2]    # Player 3
-            dist_keeper = np.linalg.norm(ball_pos - keeper_pos)
-            dist_defender = np.linalg.norm(ball_pos - defender_pos)
+            intercepting_player = 3  # Player 3 acts as secondary goalkeeper
+        #     keeper_pos = self.prev_positions[0]      # Player 1
+        #     defender_pos = self.prev_positions[2]    # Player 3
+        #     dist_keeper = np.linalg.norm(ball_pos - keeper_pos)
+        #     dist_defender = np.linalg.norm(ball_pos - defender_pos)
 
-            if dist_keeper < dist_defender:
-                intercepting_player = 1
-            else:
-                intercepting_player = 3
+        #     if dist_keeper < dist_defender:
+        #         intercepting_player = 1
+        #     else:
+        #         intercepting_player = 3
 
-            drawer.annotation(ball_pos, f"Intercept by P{intercepting_player}", drawer.Color.red, "alert")
-        else:
-            intercepting_player = None
+        #     drawer.annotation(ball_pos, f"Intercept by P{intercepting_player}", drawer.Color.red, "alert")
+        # else:
+        #     intercepting_player = None
 
 
         # ---------------- Iterate teammates ----------------
@@ -495,11 +496,11 @@ class Agent(Base_Agent):
             current_pos = self.prev_positions[i - 1]
 
             if i == 1:  # goalkeeper
-                if intercepting_player == 1:
-                    # Move toward ball and clear it
-                    desired_pos = ball_pos
-                else:
-                    desired_pos = np.array([-13, -1])  # fixed goalkeeper position
+                # if intercepting_player == 1:
+                #     # Move toward ball and clear it
+                    desired_pos = np.array([-13, 0])  # simplified for now
+                # else:
+                #     desired_pos = np.array([-13, -1])  # fixed goalkeeper position
             elif i == 3:
                 if under_attack:
                     desired_pos = np.array([-13, 1])  # second goalkeeper
