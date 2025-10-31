@@ -468,7 +468,7 @@ class Agent(Base_Agent):
             drawer.annotation((-12, 4), "Normal Play", drawer.Color.green, "alert")
 
         # ---------------- Defensive Box & Interception Logic ----------------
-        DEFENSIVE_BOX_X = -7.0
+        DEFENSIVE_BOX_X = -6.0
         DEFENSIVE_BOX_Y = 5.0
         intercepting_player = None
 
@@ -557,11 +557,11 @@ class Agent(Base_Agent):
         # --- ACTIVE PLAYER DECISIONS ---
         if strategyData.active_player_unum == strategyData.robot_model.unum:
             # --- 1. Within shooting range ---
-            if goal_distance <= 4.0:
+            if goal_distance <= 5.3:
                 drawer.annotation(my_pos, "Shooting!", drawer.Color.red, "action")
                 return self.kickTarget(strategyData, my_pos, GOAL_POS)
 
-            # --- 2. Find teammate furthest ahead (highest X coordinate) ---
+            # --- 2. Find teammate furthest ahead (highest X), but prefer central options ---
             teammates_ahead = [
                 (i + 1, pos)
                 for i, pos in enumerate(self.prev_positions)
@@ -569,11 +569,22 @@ class Agent(Base_Agent):
             ]
 
             if teammates_ahead:
-                # Pass to furthest-forward teammate
-                pass_receiver_unum, pass_pos = max(teammates_ahead, key=lambda x: x[1][0])
+                # Weighted scoring: prioritize forward progress (x) and closeness to center (|y|)
+                def pass_score(teammate):
+                    _, pos = teammate
+                    forward_gain = pos[0]  # higher X = better
+                    central_bias = -abs(pos[1]) * 0.8  # penalize wide positions
+                    return forward_gain + central_bias
+
+                # Select teammate with best combined score
+                pass_receiver_unum, pass_pos = max(teammates_ahead, key=pass_score)
+
                 drawer.line(my_pos, pass_pos, 2, drawer.Color.green, "pass line")
-                drawer.annotation(my_pos, f"Passing to {pass_receiver_unum}", drawer.Color.green, "action")
+                drawer.annotation(
+                    my_pos, f"Passing to {pass_receiver_unum} (central)", drawer.Color.green, "action"
+                )
                 return self.kickTarget(strategyData, my_pos, pass_pos)
+
 
             # --- 3. No teammate ahead → advance slightly toward goal ---
             forward_step = goal_dir * 1.0
