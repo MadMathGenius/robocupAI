@@ -442,14 +442,62 @@ class Agent(Base_Agent):
                     desired_positions[i] += direction * adjust
                     desired_positions[j] -= direction * adjust
 
+        # ---------------- Detect if team is under attack ----------------
+        opponents = strategyData.opponent_positions
+        under_attack = False
+
+        if ball_pos[0] < 0:  # Ball in our half
+            for opp in opponents:
+                if opp is not None and np.linalg.norm(opp - ball_pos) < 5.0:
+                    under_attack = True
+                    break
+
+        # ---------------- Defensive behavior for player 3 ----------------
+        if under_attack:
+            drawer.annotation((-12, 4), "Under Attack!", drawer.Color.red, "alert")
+        else:
+            drawer.annotation((-12, 4), "Normal Play", drawer.Color.green, "alert")
+
+        # ---------------- Defensive Box & Interception Logic ----------------
+        DEFENSIVE_BOX_X = -7.0
+        DEFENSIVE_BOX_Y = 5.0
+        intercepting_player = None
+
+        ball_in_defensive_box = ball_pos[0] < DEFENSIVE_BOX_X and abs(ball_pos[1]) < DEFENSIVE_BOX_Y
+
+        if under_attack and ball_in_defensive_box:
+            keeper_pos = self.prev_positions[0]      # Player 1
+            defender_pos = self.prev_positions[2]    # Player 3
+            dist_keeper = np.linalg.norm(ball_pos - keeper_pos)
+            dist_defender = np.linalg.norm(ball_pos - defender_pos)
+
+            if dist_keeper < dist_defender:
+                intercepting_player = 1
+            else:
+                intercepting_player = 3
+
+            drawer.annotation(ball_pos, f"Intercept by P{intercepting_player}", drawer.Color.red, "alert")
+        else:
+            intercepting_player = None
+
+
         # ---------------- Iterate teammates ----------------
         for i, formation_target in enumerate(point_preferences, start=1):
             current_pos = self.prev_positions[i - 1]
 
             if i == 1:  # goalkeeper
-                desired_pos = np.array([-13, 0])  # fixed goalkeeper position
+                if intercepting_player == 1:
+                    # Move toward ball and clear it
+                    desired_pos = ball_pos
+                else:
+                    desired_pos = np.array([-13, -1])  # fixed goalkeeper position
             elif i == 3:
-                desired_pos = np.array([0, 0])  # fixed midfielder position
+                if under_attack:
+                    desired_pos = np.array([-13, 1])  # second goalkeeper
+                elif intercepting_player == 3:
+                    desired_pos = ball_pos  # move toward ball and clear it
+                else:
+                    desired_pos = np.array([0, 0])  # fixed midfielder position
             elif i in [2, 3, 4, 5]:
                 # All out strikers — move near ball
                 desired_pos = desired_positions[i]
