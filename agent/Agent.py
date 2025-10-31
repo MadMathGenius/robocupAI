@@ -417,19 +417,28 @@ class Agent(Base_Agent):
         distances_to_ball = [np.linalg.norm(pos - ball_pos) for pos in self.prev_positions]
         chaser_unum = np.argmin(distances_to_ball) + 1
 
-        # ---------------- Striker coordination (Players 2–5) ----------------
+        # ---------------- Smarter Striker Coordination (Players 2–5) ----------------
         MIN_STRIKER_SPACING = 1.5
-        OFFSETS = {
-            2: np.array([-1.0, 2.0]),
-            3: np.array([-1.0, -2.0]),
-            4: np.array([-1.0, 1.0]),
-            5: np.array([-1.0, -1.0]),
-        }
 
-        # Assign all strikers around the ball with spacing
+        # Forward movement bias — how far strikers try to push ahead of the ball
+        FORWARD_BIAS = 2.5  # meters ahead of the ball
+        LATERAL_SPREAD = 2.0
+
+        # Define field limits
+        FIELD_X_MIN, FIELD_X_MAX = -15.0, 15.0
+        FIELD_Y_MIN, FIELD_Y_MAX = -10.0, 10.0
+
         desired_positions = {}
         for unum in [2, 3, 4, 5]:
-            desired_positions[unum] = ball_pos + OFFSETS[unum]
+            # Lateral offsets for spacing
+            offset_y = ((unum % 2) * 2 - 1) * LATERAL_SPREAD * (1 if unum in [2, 4] else 0.8)
+            
+            # Move slightly ahead of the ball, but clamp to goal line
+            ahead_x = min(ball_pos[0] + FORWARD_BIAS + (unum - 2) * 0.5, FIELD_X_MAX - 1.0)
+            ahead_y = np.clip(ball_pos[1] + offset_y, FIELD_Y_MIN + 1.0, FIELD_Y_MAX - 1.0)
+            
+            desired_positions[unum] = np.array([ahead_x, ahead_y])
+
 
         # Maintain spacing among all four strikers
         for i in [2, 3, 4, 5]:
@@ -532,26 +541,50 @@ class Agent(Base_Agent):
                     smooth_positions[i] += nudge
                     smooth_positions[j] -= nudge
 
+        # ---------------- Compute Goal Distance and Direction ----------------
+        my_pos = np.array(strategyData.mypos, dtype=float)
+        GOAL_POS = np.array([15.0, 0.0])  # Opponent's goal center
+        goal_vector = GOAL_POS - my_pos
+        goal_distance = np.linalg.norm(goal_vector)
+        if goal_distance == 0:
+            goal_distance = 0.01  # avoid divide by zero
+        goal_dir = goal_vector / goal_distance
+
         # ---------------- Active Player Behavior ----------------
         smooth_pos = self.prev_positions[strategyData.player_unum - 1]
 
-        if strategyData.active_player_unum == strategyData.robot_model.unum and strategyData.player_unum in [2, 3, 4, 5]:
-            # All strikers aim for goal
-            target = GOAL_POS
-            return self.kickTarget(strategyData, strategyData.mypos, target)
-        elif strategyData.active_player_unum == strategyData.robot_model.unum:
-            # Determine pass receiver
-            pass_receiver_unum = strategyData.player_unum + 1
-            if pass_receiver_unum > len(teammate_positions):
-                target = GOAL_POS
-            else:
-                target = self.prev_positions[pass_receiver_unum - 1]
+        # --- ACTIVE PLAYER DECISIONS ---
+        if strategyData.active_player_unum == strategyData.robot_model.unum:
+            # --- 1. Within shooting range ---
+            if goal_distance <= 4.0:
+                drawer.annotation(my_pos, "Shooting!", drawer.Color.red, "action")
+                return self.kickTarget(strategyData, my_pos, GOAL_POS)
 
-            drawer.line(strategyData.mypos, target, 2, drawer.Color.red, "pass line")
-            return self.kickTarget(strategyData, strategyData.mypos, target)
+            # --- 2. Find teammate furthest ahead (highest X coordinate) ---
+            teammates_ahead = [
+                (i + 1, pos)
+                for i, pos in enumerate(self.prev_positions)
+                if i + 1 != strategyData.player_unum and pos[0] > my_pos[0]
+            ]
+
+            if teammates_ahead:
+                # Pass to furthest-forward teammate
+                pass_receiver_unum, pass_pos = max(teammates_ahead, key=lambda x: x[1][0])
+                drawer.line(my_pos, pass_pos, 2, drawer.Color.green, "pass line")
+                drawer.annotation(my_pos, f"Passing to {pass_receiver_unum}", drawer.Color.green, "action")
+                return self.kickTarget(strategyData, my_pos, pass_pos)
+
+            # --- 3. No teammate ahead → advance slightly toward goal ---
+            forward_step = goal_dir * 1.0
+            new_target = my_pos + forward_step
+            drawer.annotation(my_pos, "Advancing Play", drawer.Color.yellow, "action")
+            return self.kickTarget(strategyData, my_pos, new_target)
+
+        # --- NON-ACTIVE PLAYER ---
         else:
             drawer.clear("pass line")
             return self.move(smooth_pos, orientation=strategyData.ball_dir)
+
 
 
     #Implemented dribbling and shooting logic but had issues with role assignment and smooth movement
